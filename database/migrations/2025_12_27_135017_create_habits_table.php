@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        #habits
         Schema::create('habits', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->onDelete('cascade');

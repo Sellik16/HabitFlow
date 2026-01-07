@@ -27,6 +27,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::patch('/habits/{habit}', [HabitController::class, 'update'])->name('habits.update');
     Route::delete('/habits/{habit}', [HabitController::class, 'destroy'])->name('habits.destroy');
+
+    Route::post('/habits/{habit}/complete', [HabitController::class, 'complete'])->name('habits.complete');
+    
 });
 
 require __DIR__.'/auth.php';

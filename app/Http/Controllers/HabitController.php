@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\Habit; // Importujemy model Habit
+use Carbon\Carbon;
+use App\Models\Completion;
 
 class HabitController extends Controller
 {
@@ -34,16 +36,53 @@ class HabitController extends Controller
 
         return redirect()->back()->with('success', 'Nawyk dodany!');
     }
-    public function update(Request $request, Habit $habit)
+
+    public function complete(Habit $habit)
 {
-    // Sprawdzamy, czy nawyk należy do zalogowanego użytkownika (Kontrola dostępu)
     $this->authorizeOwner($habit);
 
-    $request->validate(['title' => 'required|string|max:255']);
-    $habit->update(['title' => $request->title]);
+    $today = Carbon::today();
 
-    return redirect()->back()->with('success', 'Nawyk zaktualizowany!');
-}
+    // 1. Sprawdź czy już dzisiaj zaliczono (unikamy duplikatów)
+    $alreadyCompleted = $habit->completions()->whereDate('completed_at', $today)->exists();
+
+    if (!$alreadyCompleted) {
+        // 2. Dodaj wpis do tabeli completions
+        $habit->completions()->create([
+            'completed_at' => $today
+        ]);
+
+        // 3. Logika zwiększania streaka
+        // Sprawdzamy czy wczoraj też było zaliczone
+        $yesterday = Carbon::yesterday();
+        $completedYesterday = $habit->completions()->whereDate('completed_at', $yesterday)->exists();
+
+        if ($completedYesterday || $habit->current_streak == 0) {
+            $habit->increment('current_streak');
+            
+            // Aktualizacja rekordu życiowego
+            if ($habit->current_streak > $habit->longest_streak) {
+                $habit->update(['longest_streak' => $habit->current_streak]);
+            }
+        } else {
+            // Jeśli była przerwa, zaczynamy od 1
+            $habit->update(['current_streak' => 1]);
+        }
+    }
+
+    return redirect()->back()->with('success', 'Postęp zapisany!');
+    }
+
+    public function update(Request $request, Habit $habit)
+    {
+        // Sprawdzamy, czy nawyk należy do zalogowanego użytkownika (Kontrola dostępu)
+        $this->authorizeOwner($habit);
+
+        $request->validate(['title' => 'required|string|max:255']);
+        $habit->update(['title' => $request->title]);
+
+        return redirect()->back()->with('success', 'Nawyk zaktualizowany!');
+    }
 
     public function destroy(Habit $habit)
     {
